@@ -24,7 +24,7 @@ CATEGORIES = {
     "songs": "🎵 Предложения по песням",
     "games": "🎮 Предложения по играм",
     "bugs": " Баги и проблемы",
-    "other": "📝 Другое"
+    "other": " Другое"
 }
 
 user_states = {}  # Хранит выбранную категорию для каждого чата
@@ -52,11 +52,15 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
          InlineKeyboardButton(CATEGORIES["other"], callback_data="other")]
     ]
     await update.message.reply_text(
-        "Привет, солнышко) выбери категорию, чтобы оставить предложение:",
+        "Привет! ☀️ Выбери категорию, чтобы оставить предложение:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await show_menu(update, context)
+
+async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик команды /menu"""
     await show_menu(update, context)
 
 async def handle_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -100,12 +104,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     del user_states[chat_id]
     
-    # 1. Отправляем благодарность
+    # Отправляем благодарность
     await update.message.reply_text(
-        "Спасибо тебе, мое солнышко, я очень постараюсь это добавить/исправить в ближайшее время💗"
+        "Спасибо тебе, мое солнышко, я очень постараюсь это добавить/исправить в ближайшее время "
     )
     
-    # 2. Сразу после этого снова показываем меню для нового предложения
+    # Сразу после этого снова показываем меню для нового предложения
     await show_menu(update, context)
 
 def main():
@@ -114,7 +118,9 @@ def main():
 
     app = Application.builder().token(BOT_TOKEN).build()
 
+    # Регистрируем обработчики
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("menu", menu_command))  # ← НОВАЯ КОМАНДА
     app.add_handler(CallbackQueryHandler(handle_category))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
