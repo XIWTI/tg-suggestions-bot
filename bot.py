@@ -20,7 +20,7 @@ OWNER_ID = int(os.getenv("OWNER_ID"))
 # Категории для меню
 CATEGORIES = {
     "website": "💡 Идеи для сайта",
-    "prizes": "🎁 Призы (магазин/колесо)",
+    "prizes": " Призы (магазин/колесо)",
     "songs": "🎵 Предложения по песням",
     "games": "🎮 Предложения по играм",
     "bugs": " Баги и проблемы",
@@ -40,7 +40,8 @@ def save_data(data):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Функция для показа главного меню"""
     user_states[update.message.chat_id] = None
     keyboard = [
         [InlineKeyboardButton(CATEGORIES["website"], callback_data="website"),
@@ -54,6 +55,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Привет! ☀️ Выбери категорию, чтобы оставить предложение:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await show_menu(update, context)
 
 async def handle_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -69,7 +73,8 @@ async def handle_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.message.chat_id
     if chat_id not in user_states or user_states[chat_id] is None:
-        await update.message.reply_text("Сначала нажми /start и выбери категорию.")
+        # Если пользователь пишет текст без выбора категории, показываем меню
+        await show_menu(update, context)
         return
 
     category = user_states[chat_id]
@@ -88,15 +93,20 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_data(data)
 
     try:
-        msg = f" *Новое предложение*\n\n {username}\n📂 Категория: {CATEGORIES[category]}\n💬 Текст:\n```{text}```"
+        msg = f" *Новое предложение*\n\n {username}\n Категория: {CATEGORIES[category]}\n💬 Текст:\n```{text}```"
         await context.bot.send_message(chat_id=OWNER_ID, text=msg, parse_mode="Markdown")
     except Exception as e:
         logger.error(f"Не удалось отправить уведомление владельцу: {e}")
 
     del user_states[chat_id]
+    
+    # 1. Отправляем благодарность
     await update.message.reply_text(
-        "Спасибо тебе, мое солнышко, я очень постараюсь это добавить/исправить в ближайшее время 💖"
+        "Спасибо тебе, мое солнышко, я очень постараюсь это добавить/исправить в ближайшее время "
     )
+    
+    # 2. Сразу после этого снова показываем меню для нового предложения
+    await show_menu(update, context)
 
 def main():
     if not BOT_TOKEN or not OWNER_ID:
