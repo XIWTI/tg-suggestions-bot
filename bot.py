@@ -52,7 +52,7 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
          InlineKeyboardButton(CATEGORIES["other"], callback_data="other")]
     ]
     await update.message.reply_text(
-        "Привет! ☀️ Выбери категорию, чтобы оставить предложение:",
+        "Привет, солнышко) выбери категорию, чтобы оставить предложение:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
@@ -102,7 +102,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # 1. Отправляем благодарность
     await update.message.reply_text(
-        "Спасибо тебе, мое солнышко, я очень постараюсь это добавить/исправить в ближайшее время "
+        "Спасибо тебе, мое солнышко, я очень постараюсь это добавить/исправить в ближайшее время💗"
     )
     
     # 2. Сразу после этого снова показываем меню для нового предложения
