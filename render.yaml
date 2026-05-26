@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: tg-suggestions-bot
+    env: python
+    region: frankfurt  # можно оставить по умолчанию
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: BOT_TOKEN
+        fromEnv: BOT_TOKEN
+      - key: OWNER_ID
+        fromEnv: OWNER_ID
+    healthCheckPath: /health
