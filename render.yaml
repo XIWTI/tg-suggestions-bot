@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: tg-bot
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: BOT_TOKEN
+        fromEnv: BOT_TOKEN
+      - key: OWNER_ID
+        fromEnv: OWNER_ID
+    healthCheckPath: /
