@@ -2,24 +2,30 @@ import os
 import json
 import logging
 import threading
+import asyncio
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup
+)
+
 from telegram.ext import (
     Application,
     CommandHandler,
     CallbackQueryHandler,
     MessageHandler,
     ContextTypes,
-    filters,
+    filters
 )
 
 # ---------------- CONFIG ----------------
 
 logging.basicConfig(
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    level=logging.INFO
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
 )
 
 logger = logging.getLogger(__name__)
@@ -47,76 +53,108 @@ def load_data():
         return []
 
     try:
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except:
+        with open(DATA_FILE, "r", encoding="utf-8") as file:
+            return json.load(file)
+    except Exception:
         return []
 
 
 def save_data(data):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    with open(DATA_FILE, "w", encoding="utf-8") as file:
+        json.dump(
+            data,
+            file,
+            ensure_ascii=False,
+            indent=2
+        )
 
 
-# ---------------- HEALTH CHECK ----------------
+# ---------------- HEALTH SERVER ----------------
 
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"Bot is alive")
+        self.wfile.write(b"alive")
 
     def log_message(self, *args):
-        pass
+        return
 
 
-def start_health_server():
+def run_health_server():
     port = int(os.getenv("PORT", 8080))
-    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+
+    server = HTTPServer(
+        ("0.0.0.0", port),
+        HealthHandler
+    )
+
     server.serve_forever()
 
 
-# ---------------- BOT LOGIC ----------------
+# ---------------- UI ----------------
 
-async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def show_menu(update, context):
     chat_id = update.effective_chat.id
+
     user_states[chat_id] = None
 
     keyboard = [
         [
-            InlineKeyboardButton(CATEGORIES["website"], callback_data="website"),
-            InlineKeyboardButton(CATEGORIES["prizes"], callback_data="prizes"),
+            InlineKeyboardButton(
+                CATEGORIES["website"],
+                callback_data="website"
+            ),
+            InlineKeyboardButton(
+                CATEGORIES["prizes"],
+                callback_data="prizes"
+            )
         ],
         [
-            InlineKeyboardButton(CATEGORIES["songs"], callback_data="songs"),
-            InlineKeyboardButton(CATEGORIES["games"], callback_data="games"),
+            InlineKeyboardButton(
+                CATEGORIES["songs"],
+                callback_data="songs"
+            ),
+            InlineKeyboardButton(
+                CATEGORIES["games"],
+                callback_data="games"
+            )
         ],
         [
-            InlineKeyboardButton(CATEGORIES["bugs"], callback_data="bugs"),
-            InlineKeyboardButton(CATEGORIES["other"], callback_data="other"),
+            InlineKeyboardButton(
+                CATEGORIES["bugs"],
+                callback_data="bugs"
+            ),
+            InlineKeyboardButton(
+                CATEGORIES["other"],
+                callback_data="other"
+            )
         ]
     ]
 
     await update.effective_message.reply_text(
         "Привет ☀️\nВыбери категорию:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        reply_markup=InlineKeyboardMarkup(
+            keyboard
+        )
     )
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(update, context):
     await show_menu(update, context)
 
 
-async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def menu(update, context):
     await show_menu(update, context)
 
 
-async def category(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def category(update, context):
     query = update.callback_query
 
     await query.answer()
 
     chat_id = query.message.chat.id
+
     user_states[chat_id] = query.data
 
     await query.edit_message_text(
@@ -124,29 +162,34 @@ async def category(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def text_handler(update, context):
     chat_id = update.effective_chat.id
 
-    if chat_id not in user_states or user_states[chat_id] is None:
+    if (
+        chat_id not in user_states
+        or user_states[chat_id] is None
+    ):
         await show_menu(update, context)
         return
 
-    category_key = user_states[chat_id]
+    selected = user_states[chat_id]
 
     entry = {
         "date": datetime.now().isoformat(),
         "user": update.effective_user.full_name,
-        "category": CATEGORIES[category_key],
+        "category": CATEGORIES[selected],
         "text": update.message.text
     }
 
     data = load_data()
+
     data.append(entry)
+
     save_data(data)
 
     try:
         await context.bot.send_message(
-            OWNER_ID,
+            chat_id=OWNER_ID,
             text=(
                 "📝 Новое предложение\n\n"
                 f"👤 {entry['user']}\n"
@@ -154,8 +197,11 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"💬 {entry['text']}"
             )
         )
+
     except Exception:
-        logger.exception("Failed sending message to owner")
+        logger.exception(
+            "Owner notification error"
+        )
 
     user_states.pop(chat_id, None)
 
@@ -171,22 +217,52 @@ async def error_handler(update, context):
 # ---------------- MAIN ----------------
 
 def main():
-    if not BOT_TOKEN:
-        raise ValueError("BOT_TOKEN missing")
 
-    if not OWNER_ID:
-        raise ValueError("OWNER_ID missing")
+    if not BOT_TOKEN:
+        raise ValueError(
+            "BOT_TOKEN missing"
+        )
+
+    if OWNER_ID == 0:
+        raise ValueError(
+            "OWNER_ID missing"
+        )
 
     threading.Thread(
-        target=start_health_server,
+        target=run_health_server,
         daemon=True
     ).start()
 
-    app = Application.builder().token(BOT_TOKEN).build()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("menu", menu))
-    app.add_handler(CallbackQueryHandler(category))
+    app = (
+        Application
+        .builder()
+        .token(BOT_TOKEN)
+        .build()
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "start",
+            start
+        )
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "menu",
+            menu
+        )
+    )
+
+    app.add_handler(
+        CallbackQueryHandler(
+            category
+        )
+    )
+
     app.add_handler(
         MessageHandler(
             filters.TEXT & ~filters.COMMAND,
@@ -194,13 +270,18 @@ def main():
         )
     )
 
-    app.add_error_handler(error_handler)
+    app.add_error_handler(
+        error_handler
+    )
 
-    logger.info("Bot started")
+    logger.info(
+        "Bot started successfully"
+    )
 
     app.run_polling(
         drop_pending_updates=True,
-        allowed_updates=Update.ALL_TYPES
+        allowed_updates=Update.ALL_TYPES,
+        close_loop=False
     )
 
 
